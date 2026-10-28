@@ -1,0 +1,34 @@
+{
+  "version": "7",
+  "dialect": "sqlite",
+  "entries": [
+    {
+      "idx": 0,
+      "version": "6",
+      "when": 1792597477674,
+      "tag": "0000_familiar_santa_claus",
+      "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "6",
+      "when": 1792598139804,
+      "tag": "0001_watery_mordo",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "6",
+      "when": 1792601020266,
+      "tag": "0002_gorgeous_the_liberteens",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "6",
+      "when": 1792603823716,
+      "tag": "0003_moaning_grandmaster",
+      "breakpoints": true
+    }
+  ]
+}

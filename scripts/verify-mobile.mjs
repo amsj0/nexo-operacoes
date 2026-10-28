@@ -1,0 +1,26 @@
+import assert from 'node:assert/strict';
+const base='http://127.0.0.1:4173',request=globalThis.__nexoTestFetch;
+if(!request)throw new Error('Execute pelo verify-worker.mjs em um banco isolado.');
+let passed=0;function ok(label){passed++;console.log('PASS mobile · '+label);}
+async function get(path){const r=await request(base+path);return {status:r.status,data:await r.json()};}
+async function post(path,body,headers={}){const r=await request(base+path,{method:'POST',headers:{'Content-Type':'application/json',...headers},body:JSON.stringify(body)});return {status:r.status,data:await r.json()};}
+const marker=crypto.randomUUID().slice(0,7),people=[];
+for(let n=0;n<2;n++){const r=await post('/api/actions',{action:'addPerson',name:'Mobile QA '+n+' '+marker,email:`mobile-${n}-${marker}@instituto.example`,department:'QA mobile'});assert.equal(r.status,200);people.push(r.data.people.find(p=>p.email===`mobile-${n}-${marker}@instituto.example`));}
+const user=people[0].id,other=people[1].id;
+let r=await get('/api/mobile?person='+user);assert.equal(r.status,200);assert.deepEqual(r.data.selected,['book','equipment']);assert.equal(r.data.operations.length,0);ok('Carteira inicial e solicitações filtradas por perfil');
+const selected=['rooms','kit','book'];r=await post('/api/mobile',{action:'wallet',personId:user,services:selected});assert.equal(r.status,200);assert.deepEqual(r.data.selected,selected);r=await get('/api/mobile?person='+user);assert.deepEqual(r.data.selected,selected);ok('Seleção e ordem da carteira persistem em nova consulta');
+r=await get('/api/mobile?person='+other);assert.deepEqual(r.data.selected,['book','equipment']);ok('Preferências dos perfis são independentes');
+for(const services of [['book','book'],['unknown'],null]){r=await post('/api/mobile',{action:'wallet',personId:user,services});assert.equal(r.status,400);}ok('Serviços inválidos e duplicados são recusados');
+r=await post('/api/mobile',{action:'wallet',personId:user,services:[]});assert.equal(r.status,200);assert.deepEqual(r.data.selected,[]);ok('Carteira pode ficar vazia');
+const code='MOB-'+marker;r=await post('/api/actions',{action:'addItem',type:'book',title:'Livro mobile '+marker,subtitle:'Autor QA',category:'QA',code,total:1});assert.equal(r.status,200);const book=r.data.items.find(i=>i.code===code);
+r=await get('/api/biblioteca?busca='+marker);assert.equal(r.status,200);assert.equal(r.data.itens.length,1);assert.deepEqual(r.data.itens[0],{id:book.id,titulo:book.title,autor:'Autor QA',disponiveis:1,total:1});ok('GET /api/biblioteca retorna somente livros, com contrato simples e busca');
+r=await post('/api/biblioteca',{livroId:book.id,usuarioId:user});assert.equal(r.status,201);const reservation=r.data.reserva;assert.equal(reservation.livroId,book.id);assert.equal(reservation.usuarioId,user);assert.equal(reservation.situacao,'pre-reservado');assert(reservation.protocolo.startsWith('NX-'));assert(Number.isFinite(Date.parse(reservation.retirarAte)));ok('POST /api/biblioteca cria reserva e retorna protocolo e prazo');
+r=await post('/api/biblioteca',{livroId:book.id,usuarioId:user});assert.equal(r.status,409);ok('Repetição da pré-reserva é recusada');
+r=await get('/api/mobile?person='+user);assert(r.data.operations.some(o=>o.id===reservation.protocolo));r=await get('/api/mobile?person='+other);assert(!r.data.operations.some(o=>o.id===reservation.protocolo));ok('Reserva aparece somente nas solicitações do perfil correspondente');
+r=await post('/api/mobile',{action:'cancel',personId:other,id:reservation.protocolo});assert.equal(r.status,403);ok('Operação de outro perfil é recusada pelo servidor');
+r=await post('/api/mobile',{action:'loan',personId:user,id:reservation.protocolo});assert.equal(r.status,400);ok('Cliente mobile não confirma retirada pela equipe');
+r=await post('/api/mobile',{action:'cancel',personId:user,id:reservation.protocolo});assert.equal(r.status,200);assert.equal(r.data.operations.find(o=>o.id===reservation.protocolo).status,'cancelled');r=await get('/api/biblioteca?busca='+marker);assert.equal(r.data.itens[0].disponiveis,1);ok('Cancelamento libera o livro e preserva o histórico');
+const state=await get('/api/workspace'),equipment=state.data.items.find(i=>i.type==='equipment');r=await post('/api/biblioteca',{livroId:equipment.id,usuarioId:user});assert.equal(r.status,404);ok('Endpoint da biblioteca recusa itens de outro serviço');
+for(const path of ['/api/biblioteca','/api/mobile']){r=await post(path,{livroId:book.id,usuarioId:user,action:'wallet',personId:user,services:[]},{origin:'https://other.example'});assert.equal(r.status,403);}ok('Endpoints recusam origem externa');
+r=await post('/api/biblioteca',{livroId:book.id,usuarioId:user});assert.equal(r.status,201);const renewedId=r.data.reserva.protocolo;await post('/api/actions',{action:'loan',id:renewedId});r=await post('/api/mobile',{action:'renew',personId:user,id:renewedId});assert.equal(r.status,200);assert.equal(r.data.operations.find(o=>o.id===renewedId).renewals,1);r=await post('/api/mobile',{action:'renew',personId:user,id:renewedId});assert.equal(r.status,409);ok('Renovação pelo mobile respeita o limite institucional');
+console.log(JSON.stringify({mobilePassed:passed}));

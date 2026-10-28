@@ -1,0 +1,7 @@
+import {getChatGPTUser,chatGPTSignInPath} from '@/app/chatgpt-auth';
+import {isPartnerAdmin} from '@/lib/partner-auth';
+import PartnerClient from '@/components/partner-client';
+import '../../parceiro.css';
+export const dynamic='force-dynamic';
+export const metadata={title:'Nexo · Cliente do parceiro'};
+export default async function PartnerClientPage(){const user=await getChatGPTUser();if(!user||!isPartnerAdmin({id:user.userId,email:user.email.toLowerCase()}))return <main className="partner px-locked"><span className="px-logo">n</span><h1>Cliente de demonstração.</h1><p>Este ambiente de teste é restrito ao administrador do piloto.</p><a className="px-button px-primary" href={chatGPTSignInPath('/mobile/parceiro')} target="_top">Entrar com a conta autorizada</a><a href="/mobile">Voltar à carteira</a></main>;return <main className="partner px-client-page"><header><a className="px-brand" href="/mobile"><span className="px-logo">n</span>nexo<span>.</span></a><a href="/admin/parceiro">Painel do parceiro ↗</a></header><div className="px-client-intro"><span className="px-kicker">CLIENTE NEXO · DEMONSTRAÇÃO</span><h1>Um acesso.<br/>Diferentes instituições.</h1><p>As operações passam pelo servidor parceiro, que verifica a sessão antes de consultar o acervo.</p></div><PartnerClient/><p className="px-caption">Acesso administrativo real pelo piloto privado. Identidade institucional e segundo fator simulados; a conta Google ainda não está conectada.</p></main>;}

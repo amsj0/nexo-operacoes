@@ -1,0 +1,3 @@
+import {database} from '@/lib/server';
+import {requireAdmin,cookieToken,verifySession,safeClaims,partnerFailure} from '@/lib/partner-auth';
+export async function GET(req:Request){try{const claims=await verifySession(cookieToken(req),requireAdmin(req));const tenants=await database().prepare('SELECT t.id,t.name,t.enabled,t.mfa_required FROM partner_tenants t JOIN partner_members m ON m.tenant_id=t.id WHERE m.subject=? AND m.active=1 ORDER BY t.name').bind(claims.sub).all();return Response.json({session:safeClaims(claims),institutions:tenants.results},{headers:{'Cache-Control':'no-store'}});}catch(e){return partnerFailure(e);}}
